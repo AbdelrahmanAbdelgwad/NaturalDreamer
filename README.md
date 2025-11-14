@@ -38,7 +38,7 @@ git clone https://github.com/AbdelrahmanAbdelgwad/NaturalDreamer.git
 cd NaturalDreamer
 
 # Install dependencies
-pip install torch torchvision gymnasium dm_control pyyaml matplotlib
+pip install -r requirements.txt
 ```
 
 ## Usage
