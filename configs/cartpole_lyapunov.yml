@@ -1,0 +1,109 @@
+environmentName: cartpole-swingup
+runName: CartpoleSwingup-Lyapunov-3
+seed: 1
+
+gradientSteps: 100000
+replayRatio: 100
+saveMetrics: True
+saveCheckpoints: True
+checkpointInterval: 2000
+resume: False
+checkpointToLoad: 50k
+
+episodesBeforeStart: 5
+numInteractionEpisodes: 1
+numEvaluationEpisodes: 3
+
+dreamer:
+    batchSize: 32
+    batchLength: 64
+    imaginationHorizon: 15
+
+    recurrentSize: 256
+    latentLength: 8
+    latentClasses: 8
+    encodedObsSize: 64
+
+    useContinuationPrediction: False
+    actorLR: 0.0001 # was originally 0.00004
+    criticLR: 0.0003 # was originally 0.0001
+    worldModelLR: 0.0006 # was originally 0.0002
+    lyapunovLR: 0.0001 # Learning rate for Lyapunov function
+    gradientNormType: 2
+    gradientClip: 100
+
+    discount: 0.997 
+    lambda_: 0.95
+    freeNats: 1
+    betaPrior: 1.0
+    betaPosterior: 0.1
+    entropyScale: 0.003 # was originally 0.0003
+    
+    # Lyapunov regularization parameters
+    lyapunovLambda: 0.1  # Weight for Lyapunov regularization in actor loss
+    # You can tune this value - start with 0.1 and adjust:
+    # - Increase if you want more stable behavior
+    # - Decrease if stability constraint is too restrictive
+    # observation is [x, cosθ, sinθ, x˙, θ˙]
+    equilibriumPoint: [0.0, 1.0, 0.0, 0.0, 0.0]  # Upright position at origin 
+
+    buffer:
+        capacity: 100000
+
+    encoder: 
+        hiddenSize: 64
+        numLayers: 2
+        activation: Tanh
+
+    decoder: 
+        hiddenSize: 64
+        numLayers: 2
+        activation: Tanh
+
+    recurrentModel: 
+        hiddenSize: 100
+        activation: Tanh
+
+    priorNet: 
+        hiddenSize: 100
+        numLayers: 2
+        activation: Tanh
+        uniformMix: 0.01
+
+    posteriorNet:
+        hiddenSize: 100
+        numLayers: 2
+        activation: Tanh
+        uniformMix: 0.01
+        
+    reward:
+        hiddenSize: 100
+        numLayers: 2
+        activation: Tanh
+
+    continuation:
+        hiddenSize: 100
+        numLayers: 3
+        activation: Tanh
+    
+    actor:
+        hiddenSize: 64
+        numLayers: 2
+        activation: Tanh
+
+    critic: 
+        hiddenSize: 256
+        numLayers: 3
+        activation: Tanh
+        
+    # Lyapunov function network configuration
+    lyapunov:
+        hiddenSize: 64  # Network size for V(z)
+        numLayers: 2      # Depth of Lyapunov network
+        activation: RELU  # Activation function
+
+folderNames:
+    metricsFolder: metrics_lyapunov
+    plotsFolder: plots_lyapunov
+    checkpointsFolder: checkpoints_lyapunov
+    videosFolder: videos_lyapunov

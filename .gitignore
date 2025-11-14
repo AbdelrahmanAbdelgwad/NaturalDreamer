@@ -1,8 +1,12 @@
 __pycache__
 checkpoints
+checkpoints_lyapunov
 metrics
+metrics_lyapunov
 plots
+plots_lyapunov
 videos
+videos_lyapunov
 test.ipynb
 visualizations
 mainVisualizations.py

@@ -2,10 +2,9 @@ import gymnasium as gym
 import torch
 import argparse
 import os
-from dreamer import Dreamer
+from lyapunov.dreamer_lyapunov import DreamerLyapunov  # Use the Lyapunov version
 from utils import loadConfig, seedEverything, plotMetrics
 from envs import (
-    DMControlWrapper,
     DMControlWrapper,
     getEnvProperties,
     GymPixelsProcessingWrapper,
@@ -57,8 +56,12 @@ def main(configFile):
     print(
         f"envProperties: obs {observationShape}, action size {actionSize}, actionLow {actionLow}, actionHigh {actionHigh}"
     )
+    print(
+        f"Lyapunov regularization enabled with lambda={config.dreamer.lyapunovLambda}"
+    )
 
-    dreamer = Dreamer(
+    # Use DreamerLyapunov instead of regular Dreamer
+    dreamer = DreamerLyapunov(
         observationShape, actionSize, actionLow, actionHigh, device, config.dreamer
     )
     if config.resume:
@@ -111,11 +114,11 @@ def main(configFile):
             plotMetrics(
                 f"{metricsFilename}",
                 savePath=f"{plotFilename}",
-                title=f"{config.environmentName}",
+                title=f"{config.environmentName} with Lyapunov Regularization",
             )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="car-racing-v3.yml")
+    parser.add_argument("--config", type=str, default="cartpole_lyapunov.yml")
     main(parser.parse_args().config)

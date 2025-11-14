@@ -9,7 +9,7 @@ from torch.distributions import (
 import numpy as np
 import os
 
-from networks import (
+from lyapunov.networks_lyapunov import (
     EncoderVector,
     DecoderVector,
     RecurrentModel,
@@ -21,13 +21,14 @@ from networks import (
     DecoderConv,
     Actor,
     Critic,
+    LyapunovModel,  # Import the new Lyapunov model
 )
 from utils import computeLambdaValues, Moments
 from buffer import ReplayBuffer
 import imageio
 
 
-class Dreamer:
+class DreamerLyapunov:
     def __init__(
         self, observationShape, actionSize, actionLow, actionHigh, device, config
     ):
@@ -40,10 +41,24 @@ class Dreamer:
         self.latentSize = config.latentLength * config.latentClasses
         self.fullStateSize = config.recurrentSize + self.latentSize
 
+        # get the equilibrium point if specified (Notice it is in the observation space)
+        if hasattr(config, "equilibriumPoint"):
+            self.equilibriumPoint = torch.tensor(
+                config.equilibriumPoint, device=self.device
+            ).float()
+        else:
+            self.equilibriumPoint = None
+
         self.actor = Actor(
             self.fullStateSize, actionSize, actionLow, actionHigh, device, config.actor
         ).to(self.device)
         self.critic = Critic(self.fullStateSize, config.critic).to(self.device)
+
+        # Initialize Lyapunov function V(z)
+        self.lyapunovModel = LyapunovModel(self.fullStateSize, config.lyapunov).to(
+            self.device
+        )
+
         # Determine observation type
         self.isImageObs = len(observationShape) == 3
 
@@ -111,6 +126,10 @@ class Dreamer:
         )
         self.criticOptimizer = torch.optim.Adam(
             self.critic.parameters(), lr=self.config.criticLR
+        )
+        # Add Lyapunov optimizer
+        self.lyapunovOptimizer = torch.optim.Adam(
+            self.lyapunovModel.parameters(), lr=self.config.lyapunovLR
         )
 
         self.totalEpisodes = 0
@@ -199,23 +218,27 @@ class Dreamer:
         posteriorLoss = kl_divergence(posteriorDistribution, priorDistributionSG)
         freeNats = torch.full_like(priorLoss, self.config.freeNats)
 
-        priorLoss = self.config.betaPrior * torch.maximum(priorLoss, freeNats)
-        posteriorLoss = self.config.betaPosterior * torch.maximum(
-            posteriorLoss, freeNats
+        priorLoss = torch.maximum(priorLoss, freeNats).mean()
+        posteriorLoss = torch.maximum(posteriorLoss, freeNats).mean()
+
+        continueLoss = (
+            -self.continuePredictor(fullStates)
+            .log_prob(data.dones[:, 1:].squeeze(-1).logical_not())
+            .mean()
+            if self.config.useContinuationPrediction
+            else torch.tensor(0, device=self.device)
         )
-        klLoss = (priorLoss + posteriorLoss).mean()
 
-        worldModelLoss = (
-            reconstructionLoss + rewardLoss + klLoss
-        )  # I think that the reconstruction loss is relatively a bit too high (11k)
-
-        if self.config.useContinuationPrediction:
-            continueDistribution = self.continuePredictor(fullStates)
-            continueLoss = nn.BCELoss(continueDistribution.probs, 1 - data.dones[:, 1:])
-            worldModelLoss += continueLoss.mean()
+        loss = (
+            reconstructionLoss
+            + rewardLoss
+            + self.config.betaPrior * priorLoss
+            + self.config.betaPosterior * posteriorLoss
+            + continueLoss
+        )
 
         self.worldModelOptimizer.zero_grad()
-        worldModelLoss.backward()
+        loss.backward(retain_graph=True)
         nn.utils.clip_grad_norm_(
             self.worldModelParameters,
             self.config.gradientClip,
@@ -223,41 +246,63 @@ class Dreamer:
         )
         self.worldModelOptimizer.step()
 
-        klLossShiftForGraphing = (
-            self.config.betaPrior + self.config.betaPosterior
-        ) * self.config.freeNats
-        metrics = {
-            "worldModelLoss": worldModelLoss.item() - klLossShiftForGraphing,
-            "reconstructionLoss": reconstructionLoss.item(),
-            "rewardPredictorLoss": rewardLoss.item(),
-            "klLoss": klLoss.item() - klLossShiftForGraphing,
-        }
-        return fullStates.view(-1, self.fullStateSize).detach(), metrics
+        initialStates = torch.cat(
+            (recurrentStates[:, 0], posteriors[:, 0]), -1
+        ).detach()
 
-    def behaviorTraining(self, fullState):
-        recurrentState, latentState = torch.split(
-            fullState, (self.recurrentSize, self.latentSize), -1
-        )
-        fullStates, logprobs, entropies = [], [], []
+        metrics = {
+            "reconstructionLoss": reconstructionLoss.item(),
+            "rewardLoss": rewardLoss.item(),
+            "priorLoss": priorLoss.item(),
+            "posteriorLoss": posteriorLoss.item(),
+            "continueLoss": (
+                continueLoss.item() if self.config.useContinuationPrediction else 0
+            ),
+            "totalLoss": loss.item(),
+        }
+        return initialStates, metrics
+
+    def behaviorTraining(self, initialStates):
+        """Modified behavior training with Lyapunov regularization."""
+        recurrentState = initialStates[:, : self.recurrentSize]
+        latentState = initialStates[:, self.recurrentSize :]
+
+        fullStates = [torch.cat((recurrentState, latentState), -1)]
+        actions = []
+        logprobs = []
+        entropies = []
+        lyapunovValues = []  # Store Lyapunov values for regularization
+
         for _ in range(self.config.imaginationHorizon):
-            action, logprob, entropy = self.actor(fullState.detach(), training=True)
+            action, logprob, entropy = self.actor(fullStates[-1], training=True)
             recurrentState = self.recurrentModel(recurrentState, latentState, action)
             latentState, _ = self.priorNet(recurrentState)
 
             fullState = torch.cat((recurrentState, latentState), -1)
+
+            # Compute Lyapunov value for current state
+            lyapunovValue = self.lyapunovModel(fullState)
+
             fullStates.append(fullState)
+            actions.append(action)
             logprobs.append(logprob)
             entropies.append(entropy)
+            lyapunovValues.append(lyapunovValue)
+
         fullStates = torch.stack(
             fullStates, dim=1
-        )  # (batchSize*batchLength, imaginationHorizon, recurrentSize + latentLength*latentClasses)
+        )  # (batchSize*batchLength, imaginationHorizon+1, fullStateSize)
         logprobs = torch.stack(
-            logprobs[1:], dim=1
-        )  # (batchSize*batchLength, imaginationHorizon-1)
+            logprobs, dim=1
+        )  # (batchSize*batchLength, imaginationHorizon)
         entropies = torch.stack(
-            entropies[1:], dim=1
-        )  # (batchSize*batchLength, imaginationHorizon-1)
+            entropies, dim=1
+        )  # (batchSize*batchLength, imaginationHorizon)
+        lyapunovValues = torch.stack(
+            lyapunovValues, dim=1
+        )  # (batchSize*batchLength, imaginationHorizon)
 
+        # Standard Dreamer components
         predictedRewards = self.rewardPredictor(fullStates[:, :-1]).mean
         values = self.critic(fullStates).mean
         continues = (
@@ -272,12 +317,27 @@ class Dreamer:
         _, inverseScale = self.valueMoments(lambdaValues)
         advantages = (lambdaValues - values[:, :-1]) / inverseScale
 
-        actorLoss = -torch.mean(
-            advantages.detach() * logprobs + self.config.entropyScale * entropies
+        # Compute Lyapunov regularization
+        # Encourage V(z_{t+1}, h_{t+1}) < V(z_t, h_t) along trajectories
+        initialLyapunovValues = self.lyapunovModel(fullStates[:, 0])
+
+        # Compute Lyapunov decrease penalty: we want V(z_{t+1}, h_{t+1}) - V(z_t, h_t) < 0
+        # So we penalize positive differences
+        lyapunovDifferences = lyapunovValues[:, 1:] - lyapunovValues[:, :-1]
+
+        # Option 1: Soft constraint - penalize when V increases
+        lyapunovPenalty = torch.relu(lyapunovDifferences).mean()
+
+        # Modified actor loss with Lyapunov regularization
+        actorLoss = (
+            -torch.mean(
+                advantages.detach() * logprobs + self.config.entropyScale * entropies
+            )
+            + self.config.lyapunovLambda * lyapunovPenalty
         )
 
         self.actorOptimizer.zero_grad()
-        actorLoss.backward()
+        actorLoss.backward(retain_graph=True)
         nn.utils.clip_grad_norm_(
             self.actor.parameters(),
             self.config.gradientClip,
@@ -285,11 +345,12 @@ class Dreamer:
         )
         self.actorOptimizer.step()
 
+        # Update critic (unchanged)
         valueDistributions = self.critic(fullStates[:, :-1].detach())
         criticLoss = -torch.mean(valueDistributions.log_prob(lambdaValues.detach()))
 
         self.criticOptimizer.zero_grad()
-        criticLoss.backward()
+        criticLoss.backward(retain_graph=True)
         nn.utils.clip_grad_norm_(
             self.critic.parameters(),
             self.config.gradientClip,
@@ -297,9 +358,50 @@ class Dreamer:
         )
         self.criticOptimizer.step()
 
+        # Train Lyapunov with proper objectives:
+        # 1. Encourage V to decrease along trajectories
+        LyapunovDecayLoss = lyapunovDifferences.mean()  # Should be negative
+
+        # 2. Ensure positive definiteness (V >= 0)
+        PositiveLoss = torch.relu(-lyapunovValues).mean()
+
+        # 3. Zero at equilibrium (only if specified)
+        if self.equilibriumPoint is not None:
+            with torch.no_grad():
+                encodedEquilibrium = self.encoder(self.equilibriumPoint.unsqueeze(0))
+                recurrentStateEq = torch.zeros(
+                    1, self.recurrentSize, device=self.device
+                )
+                latentStateEq, _ = self.posteriorNet(
+                    torch.cat((recurrentStateEq, encodedEquilibrium), -1)
+                )
+                fullStateEq = torch.cat((recurrentStateEq, latentStateEq), -1)
+
+            lyapunovAtEquilibrium = self.lyapunovModel(fullStateEq)
+            LyapunovEquilibriumLoss = lyapunovAtEquilibrium.pow(2).mean()
+        else:
+            LyapunovEquilibriumLoss = 0.0
+
+        lyapunovLoss = (
+            LyapunovDecayLoss + 0.1 * PositiveLoss + 0.1 * LyapunovEquilibriumLoss
+        )
+
+        self.lyapunovOptimizer.zero_grad()
+        lyapunovLoss.backward(retain_graph=True)
+        nn.utils.clip_grad_norm_(
+            self.lyapunovModel.parameters(),
+            self.config.gradientClip,
+            norm_type=self.config.gradientNormType,
+        )
+        self.lyapunovOptimizer.step()
+
         metrics = {
             "actorLoss": actorLoss.item(),
             "criticLoss": criticLoss.item(),
+            "lyapunovLoss": lyapunovLoss.item(),
+            "lyapunovPenalty": lyapunovPenalty.item(),
+            "lyapunovMean": lyapunovValues.mean().item(),
+            "lyapunovStd": lyapunovValues.std().item(),
             "entropies": entropies.mean().item(),
             "logprobs": logprobs.mean().item(),
             "advantages": advantages.mean().item(),
@@ -320,6 +422,8 @@ class Dreamer:
         macroBlockSize=16,
     ):
         scores = []
+        lyapunovTrajectories = []  # Store Lyapunov values for analysis
+
         for i in range(numEpisodes):
             recurrentState, latentState = torch.zeros(
                 1, self.recurrentSize, device=self.device
@@ -332,6 +436,8 @@ class Dreamer:
             )
 
             currentScore, stepCount, done, frames = 0, 0, False, []
+            episodeLyapunovValues = []
+
             while not done:
                 recurrentState = self.recurrentModel(
                     recurrentState, latentState, action
@@ -340,7 +446,14 @@ class Dreamer:
                     torch.cat((recurrentState, encodedObservation.view(1, -1)), -1)
                 )
 
-                action = self.actor(torch.cat((recurrentState, latentState), -1))
+                fullState = torch.cat((recurrentState, latentState), -1)
+
+                # Track Lyapunov value during evaluation
+                if evaluation:
+                    lyapunovValue = self.lyapunovModel(fullState)
+                    episodeLyapunovValues.append(lyapunovValue.item())
+
+                action = self.actor(fullState)
                 actionNumpy = action.cpu().numpy().reshape(-1)
 
                 nextObservation, reward, done = env.step(actionNumpy)
@@ -355,7 +468,7 @@ class Dreamer:
                         (frame.shape[0] + macroBlockSize - 1)
                         // macroBlockSize
                         * macroBlockSize
-                    )  # getting rid of imagio warning
+                    )
                     targetWidth = (
                         (frame.shape[1] + macroBlockSize - 1)
                         // macroBlockSize
@@ -385,6 +498,9 @@ class Dreamer:
                 stepCount += 1
                 if done:
                     scores.append(currentScore)
+                    if evaluation:
+                        lyapunovTrajectories.append(episodeLyapunovValues)
+
                     if not evaluation:
                         self.totalEpisodes += 1
                         self.totalEnvSteps += stepCount
@@ -395,6 +511,21 @@ class Dreamer:
                             for frame in frames:
                                 video.append_data(frame)
                     break
+
+        # Compute Lyapunov stability metrics for evaluation
+        if evaluation and lyapunovTrajectories:
+            # Check monotonicity: percentage of steps where V decreases
+            monotonicSteps = 0
+            totalSteps = 0
+            for trajectory in lyapunovTrajectories:
+                for i in range(1, len(trajectory)):
+                    if trajectory[i] < trajectory[i - 1]:
+                        monotonicSteps += 1
+                    totalSteps += 1
+            monotonicityRate = monotonicSteps / totalSteps if totalSteps > 0 else 0
+
+            print(f"Lyapunov monotonicity rate: {monotonicityRate:.2%}")
+
         return sum(scores) / numEpisodes if numEpisodes else None
 
     def saveCheckpoint(self, checkpointPath):
@@ -410,9 +541,11 @@ class Dreamer:
             "rewardPredictor": self.rewardPredictor.state_dict(),
             "actor": self.actor.state_dict(),
             "critic": self.critic.state_dict(),
+            "lyapunovModel": self.lyapunovModel.state_dict(),  # Save Lyapunov model
             "worldModelOptimizer": self.worldModelOptimizer.state_dict(),
             "criticOptimizer": self.criticOptimizer.state_dict(),
             "actorOptimizer": self.actorOptimizer.state_dict(),
+            "lyapunovOptimizer": self.lyapunovOptimizer.state_dict(),  # Save Lyapunov optimizer
             "totalEpisodes": self.totalEpisodes,
             "totalEnvSteps": self.totalEnvSteps,
             "totalGradientSteps": self.totalGradientSteps,
@@ -436,9 +569,19 @@ class Dreamer:
         self.rewardPredictor.load_state_dict(checkpoint["rewardPredictor"])
         self.actor.load_state_dict(checkpoint["actor"])
         self.critic.load_state_dict(checkpoint["critic"])
+
+        # Load Lyapunov model if it exists
+        if "lyapunovModel" in checkpoint:
+            self.lyapunovModel.load_state_dict(checkpoint["lyapunovModel"])
+
         self.worldModelOptimizer.load_state_dict(checkpoint["worldModelOptimizer"])
         self.criticOptimizer.load_state_dict(checkpoint["criticOptimizer"])
         self.actorOptimizer.load_state_dict(checkpoint["actorOptimizer"])
+
+        # Load Lyapunov optimizer if it exists
+        if "lyapunovOptimizer" in checkpoint:
+            self.lyapunovOptimizer.load_state_dict(checkpoint["lyapunovOptimizer"])
+
         self.totalEpisodes = checkpoint["totalEpisodes"]
         self.totalEnvSteps = checkpoint["totalEnvSteps"]
         self.totalGradientSteps = checkpoint["totalGradientSteps"]
