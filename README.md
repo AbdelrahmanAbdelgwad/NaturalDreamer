@@ -78,7 +78,7 @@ This project adapts the [NaturalDreamer](https://github.com/InexperiencedMe/Natu
 Hafner et al., "Mastering Diverse Domains through World Models", *Nature*, 2025.
 
 **Lyapunov RL Reference**:  
-Chow et al., "A Lyapunov-based Approach to Safe Reinforcement Learning", *NeurIPS*, 2018.
+Wang et al., "Lyapunov Neural Network with Region of Attraction Search", *American Control Conference*, 2024.
 
 ## License
 
