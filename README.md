@@ -1,60 +1,89 @@
-# Natural Dreamer is a natural.
+# Stability-Aware DreamerV3 via Latent Lyapunov Regularization
 
-This is a simple and clean implementation of [DreamerV3 paper](https://arxiv.org/pdf/2301.04104), that makes it maximally easy to study the architecture and understand the training pipeline.
+**Course Project**: EC523 Deep Learning, Fall 2025, Boston University
 
-With no fancy (complex) gear, Natural Dreamer is a natural, that's naturally beautiful.
+**Team**: Abdelrahman Abdelgawad, Nana Maryam Munagah, Alexander Choi, Pranav Chintareddy
 
-<p align="center">
-<img src="additionalMaterials/OthersVsNaturalDreamer.jpg"/>
-</p>
+## Overview
 
-Want to learn how it works? I made a [tutorial](https://www.youtube.com/watch?v=viXppDhx4R0) with paper, diagrams and code from this repo.
+This project explores integrating Lyapunov stability theory into model-based reinforcement learning. We extend DreamerV3 with a learned Lyapunov function V(z,h) that acts as a soft regularizer, encouraging policies to exhibit stable, dissipative behaviors in latent space while maximizing task reward.
 
-🚧 Warning 🚧: The repo isn't in it's final form, it's still work in progress. Core algorithm works, but I should benchmark it on many types of environments, while right now, only CarRacing-v3 env (continuous actions, image observations) is solved.
+**Research Question**: Can Lyapunov regularization improve controller robustness and stability without sacrificing task performance?
 
+## Key Modifications
 
-## Performance
+Starting from the [NaturalDreamer](https://github.com/InexperiencedMe/NaturalDreamer) implementation, we added:
 
-Only CarRacing-v3 is solved for now.
+1. **Lyapunov Head**: 2-layer MLP that estimates energy V(z,h) in latent space
+2. **Actor Regularization**: Modified actor loss to penalize increases in V along imagined trajectories
+3. **Stability Metrics**: Logging for Lyapunov values, monotonicity rates, and trajectory differences
+4. **Environment Adaptation**: Extended codebase to support DMControl Cartpole-Swingup
 
-<p align="center">
-<img src="additionalMaterials/CarRacing-v3.jpg"/>
-</p>
+## Repository Structure
+```
+├── lyapunov/
+│   ├── dreamer_lyapunov.py       # Main Dreamer agent with Lyapunov extension
+│   └── networks_lyapunov.py      # Neural network architectures including LyapunovModel
+├── configs/
+│   └── cartpole_lyapunov.yml     # Hyperparameters for Cartpole experiments
+├── main_lyapunov.py               # Training script
+├── envs.py                        # Environment wrappers
+└── utils.py                       # Utilities for logging, plotting, checkpointing
+```
 
-The trace shows a moving average of 10 values. This plot is also nicely cropped, since after that point the performance started slowly declining from overtraining.
+## Installation
+```bash
+# Clone repository
+git clone https://github.com/AbdelrahmanAbdelgwad/NaturalDreamer.git
+cd NaturalDreamer
 
-Environment steps are roughly 10x the gradient steps, so 60k gradient steps is around 600k environments steps. I mostly show gradient steps because I could greatly increase the replay ratio to minimize the environment steps. I could probably slightly increase the learning rate to learn faster as well, but oh well, I have no idea what axis to show.
+# Install dependencies
+pip install torch torchvision gymnasium dm_control pyyaml matplotlib
+```
 
-## How to use it?
+## Usage
 
-DreamerV3 usage examples have been shown in my [tutorial](https://www.youtube.com/watch?v=viXppDhx4R0).
+### Training with Lyapunov Regularization
+```bash
+python main_lyapunov.py --config cartpole_lyapunov.yml
+```
 
-To run the code yourself:
-1. Clone the repo
-2. Install requirements.txt
-3. Run main.py
+### Key Hyperparameters
 
-For the list of available arguments check main.py.
+In `cartpole_lyapunov.yml`:
+- `lyapunovLambda`: Weight for Lyapunov regularization (default: 0.1)
+- `lyapunovLR`: Learning rate for Lyapunov function (default: 0.0001)
+- `equilibriumPoint`: Target equilibrium state for stability (default: upright position)
 
-Note: The code is being developed on Linux, and out of the box it works on Linux. There is a chance it runs on Windows, and if not, it could work with small changes, but for now it remains untested and unsupported.
+### Training Baseline (No Lyapunov)
 
-## TODO
+Set `lyapunovLambda: 0.0` in config or use the original NaturalDreamer training script.
 
-- TwoHot loss isn't implemented yet with rewardModel and critic. I made an attempt and wrote neat code for it, but it didn't work and I'm out of ideas on how to proceed, so that's yet to be finished. For now, rewardModel and critic use normal distribution.
-- Discrete actions. That will be easy, just a few lines of code when I'll start solving more environments.
-- Add vector observations encoder and decoder.
-- Reconstruction loss is huge (11k), messing up graphs' axis scale. But graphs are only for debugging, so it's not a priority.
-- Soft Critic cannot be neatly implemented with the current setup, without unnecessarily many net passes. I'm ignoring it for now, but maybe it will be needed one day.
-- Continue prediction is untested, so there is no guarantee that it works.
-- Remake the buffer. Buffer is currently taken from SimpleDreamer repo, but I should remake it to make it clear and clean like the rest. We don't even need to buffer the nextObservation.
+## Preliminary Results
 
+**Environment**: DMControl Cartpole-Swingup
 
-## Acknowledgements
+| Version | Peak Return (100k steps) | Notes |
+|---------|-------------------------|-------|
+| Baseline DreamerV3 | ~700 | Stable learning |
+| Lyapunov λ=0.1 | ~195 | Severe degradation - under investigation |
 
-This implementation would never came to be if not for:
+Current work focuses on diagnosing the performance gap through hyperparameter sweeps and optimization analysis.
 
-[SimpleDreamer](https://github.com/kc-ml2/SimpleDreamer) - which is the cleanest implementation of DreamerV1 I could find, which helped tremendously.
+## Acknowledgments
 
-[SheepRL DreamerV3](https://github.com/Eclectic-Sheep/sheeprl) - which was the performant and complex DreamerV3 version, that I studied a lot for all these little performance tricks. It's complex and hard and fairly messy, but still miles ahead of original DreamerV3 code, so I could study it successfully.
+This project adapts the [NaturalDreamer](https://github.com/InexperiencedMe/NaturalDreamer) implementation, which provides a clean, modular DreamerV3 implementation. We thank the original authors for making their code available.
 
-[Cameron Redovian](https://github.com/naivoder) as a person, who was working on his own DreamerV3 at the same time as I was, and his attempts somehow helped me understand the training process, especially prior and posterior nets cooperation.
+**Original DreamerV3 Paper**:  
+Hafner et al., "Mastering Diverse Domains through World Models", *Nature*, 2025.
+
+**Lyapunov RL Reference**:  
+Chow et al., "A Lyapunov-based Approach to Safe Reinforcement Learning", *NeurIPS*, 2018.
+
+## License
+
+This project inherits the license from the original NaturalDreamer repository.
+
+## Contact
+
+For questions about this project, contact: aaoaa@bu.edu
