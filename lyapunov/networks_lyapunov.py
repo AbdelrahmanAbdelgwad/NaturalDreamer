@@ -124,47 +124,38 @@ class ContinueModel(nn.Module):
 
 class LyapunovModel(nn.Module):
     """Lyapunov function V(z) that estimates energy/stability in latent space.
-    
+
     The Lyapunov function should be:
     - Positive definite: V(z) > 0 for all z != 0, V(0) = 0
     - Monotonically decreasing along trajectories: V(z_{t+1}) < V(z_t)
     """
+
     def __init__(self, inputSize, config):
         super().__init__()
         self.config = config
-        
+
         # Network to compute Lyapunov value
         self.network = sequentialModel1D(
             inputSize,
             [self.config.hiddenSize] * self.config.numLayers,
             1,
             self.config.activation,
+            finishWithActivation=True,  # Add this
         )
-        
-        # Optional: add a small positive bias to ensure V(z) > 0
-        # This can be tuned or learned
-        self.epsilon = 1e-6
-        
+
     def forward(self, x):
         """Compute Lyapunov function value V(z).
-        
+
         Args:
             x: Latent state (recurrent + latent representation)
-            
+
         Returns:
             Positive scalar value representing Lyapunov energy
         """
         # Network output
         v = self.network(x)
-        
-        # Ensure positive definiteness by using squared output or exponential
-        # Option 1: Square the output (simple, differentiable at 0)
-        lyapunov_value = v.pow(2) + self.epsilon
-        
-        # Option 2: Exponential (always positive, smooth)
-        # lyapunov_value = torch.exp(v) + self.epsilon
-        
-        return lyapunov_value.squeeze(-1)
+
+        return v.squeeze(-1)
 
 
 class EncoderConv(nn.Module):

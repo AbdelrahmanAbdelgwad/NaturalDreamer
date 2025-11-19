@@ -11,3 +11,14 @@ test.ipynb
 visualizations
 mainVisualizations.py
 dreamerVisual.py
+
+*.png
+test_results.csv
+*.log
+*.csv
+*.mp4
+*.avi
+*.gif
+*.pth
+*.pt
+*.ckpt
