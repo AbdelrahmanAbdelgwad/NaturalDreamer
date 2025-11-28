@@ -11,3 +11,6 @@ test.ipynb
 visualizations
 mainVisualizations.py
 dreamerVisual.py
+.venv/
+venv/
+env/
