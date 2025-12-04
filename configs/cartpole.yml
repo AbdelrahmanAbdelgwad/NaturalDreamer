@@ -19,10 +19,10 @@ dreamer:
     batchLength: 64
     imaginationHorizon: 15
 
-    recurrentSize: 512
-    latentLength: 16
-    latentClasses: 16
-    encodedObsSize: 1024
+    recurrentSize: 256
+    latentLength: 8
+    latentClasses: 8
+    encodedObsSize: 64
 
     useContinuationPrediction: False
     actorLR: 0.00004
