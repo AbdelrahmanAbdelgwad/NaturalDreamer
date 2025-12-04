@@ -126,8 +126,8 @@ class LyapunovModel(nn.Module):
     """Lyapunov function V(z) that estimates energy/stability in latent space.
 
     The Lyapunov function should be:
-    - Positive definite: V(z) > 0 for all z != 0, V(0) = 0
-    - Monotonically decreasing along trajectories: V(z_{t+1}) < V(z_t)
+    - Positive definite: V(z, h) > 0 for all z != 0, V(0) = 0
+    - Monotonically decreasing along trajectories: V(z_{t+1}, h_{t+1}) < V(z_t, h_t)
     """
 
     def __init__(self, inputSize, config):

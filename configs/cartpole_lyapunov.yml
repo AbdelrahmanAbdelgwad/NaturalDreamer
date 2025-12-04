@@ -1,5 +1,5 @@
 environmentName: cartpole-swingup
-runName: CartpoleSwingup-Lyapunov-7
+runName: CartpoleSwingup-Lyapunov-8
 seed: 1
 
 gradientSteps: 100000
@@ -8,7 +8,7 @@ saveMetrics: True
 saveCheckpoints: True
 checkpointInterval: 2000
 resume: False
-checkpointToLoad: 100k
+checkpointToLoad: 98k
 
 episodesBeforeStart: 5
 numInteractionEpisodes: 1
