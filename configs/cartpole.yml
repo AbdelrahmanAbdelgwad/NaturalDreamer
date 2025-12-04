@@ -1,10 +1,10 @@
 environmentName: cartpole-swingup
 runName: CartpoleSwingup-1
-seed: 1
+seed: 0
 
-gradientSteps: 100000
-replayRatio: 100
-saveMetrics: True
+gradientSteps: 100_000
+replayRatio: 64
+saveMetrics: True # Saves metrics at replayRatio interval
 saveCheckpoints: True
 checkpointInterval: 2000
 resume: False
@@ -12,78 +12,78 @@ checkpointToLoad: 50k
 
 episodesBeforeStart: 5
 numInteractionEpisodes: 1
-numEvaluationEpisodes: 3
+numEvaluationEpisodes: 5
 
 dreamer:
-    batchSize: 32
+    batchSize: 16
     batchLength: 64
     imaginationHorizon: 15
 
-    recurrentSize: 256
-    latentLength: 8
-    latentClasses: 8
-    encodedObsSize: 64
+    recurrentSize: 512
+    latentLength: 16
+    latentClasses: 16
+    encodedObsSize: 1024
 
     useContinuationPrediction: False
-    actorLR: 0.0001 # was originally 0.00004
-    criticLR: 0.0003 # was originally 0.0001
-    worldModelLR: 0.0006 # was originally 0.0002
+    actorLR: 0.00004
+    criticLR: 0.0001
+    worldModelLR: 0.0002
     gradientNormType: 2
     gradientClip: 100
 
-    discount: 0.997 
+    discount: 0.997
     lambda_: 0.95
     freeNats: 1
     betaPrior: 1.0
     betaPosterior: 0.1
-    entropyScale: 0.003 # was originally 0.0003
+    entropyScale: 0.0003
 
     buffer:
-        capacity: 100000
+        capacity: 50_000
 
-    encoder: 
+    encoder:
         hiddenSize: 64
         numLayers: 2
         activation: Tanh
 
-    decoder: 
+    decoder:
         hiddenSize: 64
         numLayers: 2
         activation: Tanh
 
-    recurrentModel: 
-        hiddenSize: 100
+    recurrentModel:
+        hiddenSize: 200
         activation: Tanh
 
-    priorNet: 
-        hiddenSize: 100
+    priorNet:
+        hiddenSize: 200
         numLayers: 2
         activation: Tanh
         uniformMix: 0.01
 
     posteriorNet:
-        hiddenSize: 100
+        hiddenSize: 200
         numLayers: 2
         activation: Tanh
         uniformMix: 0.01
-        
+
     reward:
-        hiddenSize: 200
+        hiddenSize: 400
         numLayers: 2
         activation: Tanh
 
     continuation:
-        hiddenSize: 200
+        hiddenSize: 400
         numLayers: 3
         activation: Tanh
-    
+
     actor:
-        hiddenSize: 64
+        hiddenSize: 400
         numLayers: 2
         activation: Tanh
 
-    critic: 
-        hiddenSize: 256
+    critic:
+        hiddenSize: 400
         numLayers: 3
         activation: Tanh
 
