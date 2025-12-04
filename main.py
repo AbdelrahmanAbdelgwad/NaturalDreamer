@@ -105,12 +105,6 @@ def main(configFile):
                 "gradientSteps": dreamer.totalGradientSteps,
                 "totalReward": mostRecentScore,
             }
-            print(
-                f"worldModel Loss: {worldModelMetrics['worldModelLoss']:.4f}, "
-                f"reconstruction Loss: {worldModelMetrics['reconstructionLoss']:.4f}, "
-                f"rewardPredictor Loss: {worldModelMetrics['rewardPredictorLoss']:.4f}, "
-                f"KL Loss: {worldModelMetrics['klLoss']:.4f}, "
-            )
             saveLossesToCSV(
                 metricsFilename, metricsBase | worldModelMetrics | behaviorMetrics
             )
