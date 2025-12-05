@@ -9,15 +9,15 @@ runName: PendulumSwingup-Present-1
 seed: 0
 
 gradientSteps: 100_000
-replayRatio: 64
+replayRatio: 32
 saveMetrics: True # Saves metrics at replayRatio interval
 saveCheckpoints: True
-checkpointInterval: 2000
+checkpointInterval: 500
 resume: False
 checkpointToLoad: 50k
 
-episodesBeforeStart: 10
-numInteractionEpisodes: 1
+episodesBeforeStart: 2
+numInteractionEpisodes: 5
 numEvaluationEpisodes: 5
 
 dreamer:
@@ -28,7 +28,7 @@ dreamer:
   recurrentSize: 256
   latentLength: 8
   latentClasses: 8
-  encodedObsSize: 64
+  encodedObsSize: 4
 
   useContinuationPrediction: False
   actorLR: 0.00004

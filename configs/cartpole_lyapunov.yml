@@ -1,5 +1,5 @@
 environmentName: cartpole-swingup
-runName: CartpoleSwingup-Lyapunov-3
+runName: CartpoleSwingup-Lyapunov-Present-1
 seed: 1
 
 gradientSteps: 100_000
@@ -100,7 +100,7 @@ dreamer:
     lyapunov:
         hiddenSize: 64 # Network size for V(z)
         numLayers: 2 # Depth of Lyapunov network
-        activation: RELU # Activation function
+        activation: ReLU # Activation function
 
 folderNames:
     metricsFolder: metrics_lyapunov
