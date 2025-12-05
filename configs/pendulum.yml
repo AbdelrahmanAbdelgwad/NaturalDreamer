@@ -13,8 +13,8 @@ replayRatio: 32
 saveMetrics: True # Saves metrics at replayRatio interval
 saveCheckpoints: True
 checkpointInterval: 500
-resume: False
-checkpointToLoad: 50k
+resume: True
+checkpointToLoad: 19.50k
 
 episodesBeforeStart: 2
 numInteractionEpisodes: 5

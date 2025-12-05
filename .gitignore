@@ -22,3 +22,5 @@ test_results.csv
 *.pth
 *.pt
 *.ckpt
+
+wandb/
