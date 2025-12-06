@@ -39,7 +39,7 @@ def parse_args():
 
 
 def set_global_seed(seed: int):
-    seedEverything(seed)  # uses your existing helper
+    seedEverything(seed)  
     np.random.seed(seed)
     try:
         torch.manual_seed(seed)
@@ -55,7 +55,6 @@ def is_cartpole_failure(ep_length: int, max_episode_steps: int) -> bool:
 
     
 def build_env_and_dreamer(config_file: str):
-    # Always use just the filename, so both "cartpole.yml" and "configs/cartpole.yml" work
     cfg_name = os.path.basename(config_file)
     cfg = loadConfig(cfg_name)
 
@@ -63,11 +62,11 @@ def build_env_and_dreamer(config_file: str):
     if "CarRacing" in cfg.environmentName:
         raise ValueError("This eval script is for DMControl Cartpole, not CarRacing.")
 
-    # DMControl env: environmentName like "cartpole-swingup"
+    # DMControl env
     domain, task = cfg.environmentName.split("-")
     env = CleanGymWrapper(DMControlWrapper(domain, task))
 
-    # Get observation / action properties exactly like in main.py
+    # Get observation 
     observationShape, actionSize, actionLow, actionHigh = getEnvProperties(env)
     print(
         f"[Eval] envProperties: obs {observationShape}, "
@@ -111,7 +110,7 @@ def run_eval_cartpole(
     results = []
 
     for ep in range(num_episodes):
-        # Reset env like environmentInteraction does (it only expects obs)
+        # Reset env 
         obs = env.reset(seed=seed + ep)
         currentScore = 0.0
         stepCount = 0
@@ -131,7 +130,7 @@ def run_eval_cartpole(
         action_norms = []
 
         while not done and stepCount < max_episode_steps:
-            # World-model rollout step (same as environmentInteraction)
+            # World-model rollout step 
             recurrentState = dreamer.recurrentModel(
                 recurrentState, latentState, action
             )
@@ -144,11 +143,11 @@ def run_eval_cartpole(
             action = dreamer.actor(fullState)
             action_np = action.detach().cpu().numpy().reshape(-1)
 
-            # Inject Gaussian action noise if requested
+            # Inject Gaussian action noise 
             if noise_sigma > 0.0:
                 action_np = action_np + rng.normal(0.0, noise_sigma, size=action_np.shape)
 
-            # Track action norm (after noise)
+            # Track action norm 
             action_norms.append(float(np.linalg.norm(action_np, ord=2)))
 
             # Step environment
