@@ -2,6 +2,10 @@ import gymnasium as gym
 import torch
 import argparse
 import os
+
+# Adding to run in WSL
+os.environ["MUJOCO_GL"] = "egl"
+
 from dreamer import Dreamer
 from utils import loadConfig, seedEverything, plotMetrics
 from envs import (

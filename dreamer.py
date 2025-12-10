@@ -26,6 +26,7 @@ from utils import computeLambdaValues, Moments
 from buffer import ReplayBuffer
 import imageio
 
+import torch.nn.functional as F # added for binary cross-entropy loss
 
 class Dreamer:
     def __init__(
@@ -211,8 +212,13 @@ class Dreamer:
 
         if self.config.useContinuationPrediction:
             continueDistribution = self.continuePredictor(fullStates)
-            continueLoss = nn.BCELoss(continueDistribution.probs, 1 - data.dones[:, 1:])
-            worldModelLoss += continueLoss.mean()
+            #continueLoss = nn.BCELoss(continueDistribution.probs, 1 - data.dones[:, 1:])
+            #worldModelLoss += continueLoss.mean()
+            target = (1 - data.dones[:, 1:]).squeeze(-1)
+            continueLoss = F.binary_cross_entropy(
+                continueDistribution.probs, target, reduction="mean"
+            )
+            worldModelLoss += continueLoss
 
         self.worldModelOptimizer.zero_grad()
         worldModelLoss.backward()

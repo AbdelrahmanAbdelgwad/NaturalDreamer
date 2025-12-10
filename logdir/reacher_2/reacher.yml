@@ -1,0 +1,94 @@
+environmentName: reacher-easy
+runName: ReacherEasy-2
+seed: 1
+
+gradientSteps: 100000
+replayRatio: 8 # changed to decrease jitter
+saveMetrics: True
+saveCheckpoints: True
+checkpointInterval: 500 # changed to save more frequently
+resume: False
+checkpointToLoad: 50k
+
+episodesBeforeStart: 20 # changed to need more replay data
+numInteractionEpisodes: 1
+numEvaluationEpisodes: 3
+
+dreamer:
+    batchSize: 32
+    batchLength: 32 # changed to shorter unrolls
+    imaginationHorizon: 15
+
+    recurrentSize: 256
+    latentLength: 32 # changed to larger latents
+    latentClasses: 32 # changed to larger latents
+    encodedObsSize: 64
+
+    useContinuationPrediction: True # changed to True for reacher
+    actorLR: 0.00004 # using original value to decrease jitter
+    criticLR: 0.0001 # using original value to decrease jitter
+    worldModelLR: 0.0002 # using original value to decrease jitter
+    gradientNormType: 2
+    gradientClip: 100
+
+    discount: 0.997 
+    lambda_: 0.95
+    freeNats: 1
+    betaPrior: 1.0
+    betaPosterior: 0.1
+    entropyScale: 0.0003 # using original value to decrease jitter
+
+    buffer:
+        capacity: 100000
+
+    encoder: 
+        hiddenSize: 64
+        numLayers: 2
+        activation: Tanh
+
+    decoder: 
+        hiddenSize: 64
+        numLayers: 2
+        activation: Tanh
+
+    recurrentModel: 
+        hiddenSize: 100
+        activation: Tanh
+
+    priorNet: 
+        hiddenSize: 100
+        numLayers: 2
+        activation: Tanh
+        uniformMix: 0.01
+
+    posteriorNet:
+        hiddenSize: 100
+        numLayers: 2
+        activation: Tanh
+        uniformMix: 0.01
+        
+    reward:
+        hiddenSize: 200
+        numLayers: 2
+        activation: Tanh
+
+    continuation:
+        hiddenSize: 200
+        numLayers: 3
+        activation: Tanh
+    
+    actor:
+        hiddenSize: 64
+        numLayers: 2
+        activation: Tanh
+
+    critic: 
+        hiddenSize: 256
+        numLayers: 3
+        activation: Tanh
+
+folderNames:
+    metricsFolder: metrics
+    plotsFolder: plots
+    checkpointsFolder: checkpoints
+    videosFolder: videos
