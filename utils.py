@@ -32,7 +32,12 @@ def findFile(filename):
 def loadConfig(config_path):
     if not config_path.endswith(".yml"):
         config_path += ".yml"
-    config_path = findFile(config_path)
+
+    try:
+        config_path = findFile(config_path)
+    except:
+        # Take the absoute path as is
+        pass
     with open(config_path) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     return attridict(config)

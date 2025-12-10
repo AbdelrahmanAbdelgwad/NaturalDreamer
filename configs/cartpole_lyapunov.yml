@@ -1,5 +1,5 @@
 environmentName: cartpole-swingup
-runName: CartpoleSwingup-Lyapunov-Present-1
+runName: CartpoleSwingup-Lyapunov-Present-2
 seed: 1
 
 gradientSteps: 100_000

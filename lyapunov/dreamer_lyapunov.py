@@ -55,12 +55,11 @@ class DreamerLyapunov:
         ).to(self.device)
         self.critic = Critic(self.fullStateSize, config.critic).to(self.device)
 
-        # Initialize Lyapunov function V(x)
-        # Notice that we use the original observation shape here for Lyapunov
-        # Meaning that we use the decoder to map back to observation space
-        self.lyapunovModel = LyapunovModel(
-            np.prod(observationShape), config.lyapunov
-        ).to(self.device)
+        # Initialize Lyapunov function V(z, h)
+
+        self.lyapunovModel = LyapunovModel(self.fullStateSize, config.lyapunov).to(
+            self.device
+        )
 
         # Determine observation type
         self.isImageObs = len(observationShape) == 3
@@ -281,11 +280,10 @@ class DreamerLyapunov:
             recurrentState = self.recurrentModel(recurrentState, latentState, action)
             latentState, _ = self.priorNet(recurrentState)
 
-            # Compute Lyapunov value for current state
-            reconstructedObservation = self.decoder(fullStates[-1])
-            lyapunovValue = self.lyapunovModel(reconstructedObservation)
-
             fullState = torch.cat((recurrentState, latentState), -1)
+
+            # Compute Lyapunov value for current state
+            lyapunovValue = self.lyapunovModel(fullState)
 
             fullStates.append(fullState)
             actions.append(action)
@@ -321,7 +319,7 @@ class DreamerLyapunov:
         _, inverseScale = self.valueMoments(lambdaValues)
         advantages = (lambdaValues - values[:, :-1]) / inverseScale
 
-        # Compute Lyapunov decrease penalty: we want V(x_{t+1}) - V(x_t) < 0
+        # Compute Lyapunov decrease penalty: we want V(z_{t+1}, h_{t+1}) - V(z_t, h_t) < 0
         # So we penalize positive differences
         lyapunovDifferences = lyapunovValues[:, 1:] - lyapunovValues[:, :-1]
 

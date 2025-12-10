@@ -127,7 +127,7 @@ class LyapunovModel(nn.Module):
 
     The Lyapunov function should be:
     - Positive definite: V(z) > 0 for all z != 0, V(0) = 0
-    - Monotonically decreasing along trajectories: V(z_{t+1}) < V(z_t)
+    - Monotonically decreasing along trajectories: V(z_{t+1}, h_{t+1}) < V(z_t, h_t)
     """
 
     def __init__(self, inputSize, config):
