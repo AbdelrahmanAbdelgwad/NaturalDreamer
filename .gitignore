@@ -3,7 +3,7 @@ checkpoints
 checkpoints_lyapunov
 metrics
 metrics_lyapunov
-plots
+plots/
 plots_lyapunov
 videos
 videos_lyapunov
@@ -11,3 +11,10 @@ test.ipynb
 visualizations
 mainVisualizations.py
 dreamerVisual.py
+.venv/
+venv/
+env/
+eval_results/*.csv
+checkpoints/
+*.pth
+Testing and Visualization.docx
