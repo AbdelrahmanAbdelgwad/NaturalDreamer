@@ -22,6 +22,8 @@ test_results.csv
 *.pth
 *.pt
 *.ckpt
+*.html
+
 
 wandb/
 metrics*/
@@ -31,5 +33,5 @@ plots*/
 checkpoints*/
 *checkpoints*/
 
-plots_lyapunov*/
+plots_pendulum_lyapunov
 
