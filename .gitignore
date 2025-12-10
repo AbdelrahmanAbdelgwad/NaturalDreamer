@@ -24,3 +24,12 @@ test_results.csv
 *.ckpt
 
 wandb/
+metrics*/
+*videos*/
+plots*/
+*plots*/
+checkpoints*/
+*checkpoints*/
+
+plots_lyapunov*/
+
