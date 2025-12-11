@@ -1,28 +1,28 @@
 environmentName: pendulum-swingup
-runName: CartpoleSwingup-Lyapunov-3
+runName: PendulumSwingup-baseline
 seed: 1
 
-gradientSteps: 300000
-replayRatio: 100
+gradientSteps: 100000
+replayRatio: 32
 saveMetrics: True
 saveCheckpoints: True
-checkpointInterval: 2000
+checkpointInterval: 500
 resume: False
-checkpointToLoad: 50k
+checkpointToLoad: 98k
 
-episodesBeforeStart: 5
+episodesBeforeStart: 10
 numInteractionEpisodes: 1
-numEvaluationEpisodes: 10
+numEvaluationEpisodes: 3
 
 dreamer:
-    batchSize: 32
+    batchSize: 256
     batchLength: 64
     imaginationHorizon: 15
 
-    recurrentSize: 128 # was 256 before
+    recurrentSize: 32
     latentLength: 8
     latentClasses: 8
-    encodedObsSize: 64
+    encodedObsSize: 16
 
     useContinuationPrediction: False
     actorLR: 0.0001 # was originally 0.00004
@@ -37,52 +37,52 @@ dreamer:
     freeNats: 1
     betaPrior: 1.0
     betaPosterior: 0.1
-    entropyScale: 0.003 # was originally 0.0003
+    entropyScale: 0.01 # was originally 0.0003
     
     # Lyapunov regularization parameters
-    lyapunovLambda: 0.0  # Weight for Lyapunov regularization in actor loss
+    lyapunovLambda: 0.00  # Weight for Lyapunov regularization in actor loss
     # You can tune this value - start with 0.1 and adjust:
     # - Increase if you want more stable behavior
     # - Decrease if stability constraint is too restrictive
-    # observation is [x, cosθ, sinθ, x˙, θ˙]
+    # observation is [cosθ, sinθ, θ˙]
     equilibriumPoint: [1.0, 0.0, 0.0]  # Upright position at origin 
 
     buffer:
         capacity: 100000
 
     encoder: 
-        hiddenSize: 64
+        hiddenSize: 32
         numLayers: 2
         activation: Tanh
 
     decoder: 
-        hiddenSize: 64
+        hiddenSize: 32
         numLayers: 2
         activation: Tanh
 
     recurrentModel: 
-        hiddenSize: 100
+        hiddenSize: 64
         activation: Tanh
 
     priorNet: 
-        hiddenSize: 100
+        hiddenSize: 64
         numLayers: 2
         activation: Tanh
         uniformMix: 0.01
 
     posteriorNet:
-        hiddenSize: 100
+        hiddenSize: 64
         numLayers: 2
         activation: Tanh
         uniformMix: 0.01
         
     reward:
-        hiddenSize: 100
+        hiddenSize: 64
         numLayers: 2
         activation: Tanh
 
     continuation:
-        hiddenSize: 100
+        hiddenSize: 64
         numLayers: 3
         activation: Tanh
     
@@ -92,18 +92,18 @@ dreamer:
         activation: Tanh
 
     critic: 
-        hiddenSize: 256
-        numLayers: 3
+        hiddenSize: 128
+        numLayers: 2
         activation: Tanh
         
     # Lyapunov function network configuration
     lyapunov:
-        hiddenSize: 64  # Network size for V(z)
+        hiddenSize: 256  # Network size for V(z)
         numLayers: 2      # Depth of Lyapunov network
-        activation: ReLU  # Activation function
+        activation: Sigmoid  # Activation function
 
 folderNames:
-    metricsFolder: metrics
-    plotsFolder: plots
-    checkpointsFolder: checkpoints
-    videosFolder: videos
+    metricsFolder: metrics_pendulum_lyapunov
+    plotsFolder: plots_pendulum_lyapunov
+    checkpointsFolder: checkpoints_pendulum_lyapunov
+    videosFolder: videos_pendulum_lyapunov

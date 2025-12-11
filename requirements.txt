@@ -6,3 +6,4 @@ pandas
 plotly
 attridict
 dm_control
+wandb

@@ -1,21 +1,21 @@
 environmentName: CarRacing-v3
-runName: CarRacingV3
-seed: 1
+runName: CarRacingV3-Present-1
+seed: 0
 
-gradientSteps: 60000
-replayRatio: 100
-saveMetrics: True        # Saves metrics at replayRatio interval
+gradientSteps: 100_000
+replayRatio: 64
+saveMetrics: True # Saves metrics at replayRatio interval
 saveCheckpoints: True
 checkpointInterval: 2000
-resume: False
-checkpointToLoad: 50k
+resume: True
+checkpointToLoad: 38k
 
 episodesBeforeStart: 5
 numInteractionEpisodes: 1
-numEvaluationEpisodes: 1
+numEvaluationEpisodes: 5
 
 dreamer:
-    batchSize: 32
+    batchSize: 16
     batchLength: 64
     imaginationHorizon: 15
 
@@ -39,25 +39,25 @@ dreamer:
     entropyScale: 0.0003
 
     buffer:
-        capacity: 50000
+        capacity: 50_000
 
-    encoder: 
+    encoder:
         depth: 16
         stride: 2
         kernelSize: 4
         activation: Tanh
 
-    decoder: 
+    decoder:
         depth: 16
         stride: 2
         kernelSize: 5
         activation: Tanh
 
-    recurrentModel: 
+    recurrentModel:
         hiddenSize: 200
         activation: Tanh
 
-    priorNet: 
+    priorNet:
         hiddenSize: 200
         numLayers: 2
         activation: Tanh
@@ -68,7 +68,7 @@ dreamer:
         numLayers: 2
         activation: Tanh
         uniformMix: 0.01
-        
+
     reward:
         hiddenSize: 400
         numLayers: 2
@@ -78,15 +78,15 @@ dreamer:
         hiddenSize: 400
         numLayers: 3
         activation: Tanh
-    
+
     actor:
         hiddenSize: 400
         numLayers: 2
         activation: Tanh
 
-    critic: 
+    critic:
         hiddenSize: 400
-        numLayers: 3 
+        numLayers: 3
         activation: Tanh
 
 folderNames:

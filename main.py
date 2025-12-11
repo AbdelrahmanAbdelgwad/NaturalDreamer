@@ -1,3 +1,6 @@
+# TODO: Add wandb integration for experiment tracking
+# TODO: Add print statements for key steps and metrics
+# TODO:
 import gymnasium as gym
 import torch
 import argparse
@@ -16,9 +19,25 @@ from utils import saveLossesToCSV, ensureParentFolders
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
+# Remove warning messages from all libraries
+import warnings
+
+warnings.filterwarnings("ignore")
+
+# import weights & biases
+import wandb
+
 
 def main(configFile):
+
+    wandb.init(project="NaturalDreamer", name=configFile)
+
+    print(f"Loading config from {configFile}")
     config = loadConfig(configFile)
+
+    wandb.config.update(config)
+
+    print(f"Setting random seed to {config.seed}")
     seedEverything(config.seed)
 
     runName = f"{config.environmentName}_{config.runName}"
@@ -54,6 +73,8 @@ def main(configFile):
         envEvaluation = CleanGymWrapper(DMControlWrapper(domain, task))
 
     observationShape, actionSize, actionLow, actionHigh = getEnvProperties(env)
+    print("Starting Dreamer training...")
+    print(f"Environment: {config.environmentName}")
     print(
         f"envProperties: obs {observationShape}, action size {actionSize}, actionLow {actionLow}, actionHigh {actionHigh}"
     )
@@ -62,15 +83,34 @@ def main(configFile):
         observationShape, actionSize, actionLow, actionHigh, device, config.dreamer
     )
     if config.resume:
+        print(f"Resuming training from checkpoint: {checkpointToLoad}")
         dreamer.loadCheckpoint(checkpointToLoad)
+    else:
+        print("Starting training from scratch.")
 
     # Initial environment interaction to fill the replay buffer before training the world model
     # Remember that we train the world model first, then the behavior policy using the learned world model
+    print("Starting initial environment interaction to fill the replay buffer...")
     dreamer.environmentInteraction(env, config.episodesBeforeStart, seed=config.seed)
+    print("Initial environment interaction completed.")
 
     iterationsNum = config.gradientSteps // config.replayRatio
-    for _ in range(iterationsNum):
-        for _ in range(config.replayRatio):
+    print("Starting main training loop...")
+    print(
+        f"Total gradient steps to perform: {config.gradientSteps} = {iterationsNum} iterations x {config.replayRatio} replay ratio"
+    )
+    print("Beginning training iterations...")
+
+    print(
+        f"Will be saving checkpoints every {config.checkpointInterval} gradient steps."
+    )
+
+    for iteration in range(iterationsNum):
+        print(
+            f"Iteration {iteration + 1} of {iterationsNum}, Total Gradient Steps: {dreamer.totalGradientSteps}"
+        )
+        for replayStep in range(config.replayRatio):
+
             sampledData = dreamer.buffer.sample(
                 dreamer.config.batchSize, dreamer.config.batchLength
             )
@@ -82,7 +122,7 @@ def main(configFile):
                 dreamer.totalGradientSteps % config.checkpointInterval == 0
                 and config.saveCheckpoints
             ):
-                suffix = f"{dreamer.totalGradientSteps/1000:.0f}k"
+                suffix = f"{dreamer.totalGradientSteps/1000:.2f}k"
                 dreamer.saveCheckpoint(f"{checkpointFilenameBase}_{suffix}")
                 evaluationScore = dreamer.environmentInteraction(
                     envEvaluation,
@@ -114,8 +154,27 @@ def main(configFile):
                 title=f"{config.environmentName}",
             )
 
+            # log to wandb as reward, world model loss, behavior loss
+            # logging should make them appear as curves over envSteps
+            wandb.log(
+                {
+                    "envSteps": dreamer.totalEnvSteps,
+                    "gradientSteps": dreamer.totalGradientSteps,
+                    "totalReward": mostRecentScore,
+                    **worldModelMetrics,
+                    **behaviorMetrics,
+                }
+            )
+
+    print("Training completed.")
+
 
 if __name__ == "__main__":
+    from time import time
+
+    t1 = time()
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="car-racing-v3.yml")
     main(parser.parse_args().config)
+    t2 = time()
+    print(f"Total execution time: {t2 - t1:.2f} seconds")

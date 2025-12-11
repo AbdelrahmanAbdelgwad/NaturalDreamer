@@ -1,0 +1,100 @@
+# Dividing the replay ratio by the time steps in a minibatch and by action repeat
+# yields the ratio of gradient steps to env steps. For example, a replay ratio of 32
+# on Atari with action repeat of 4 and batch shape 16 × 64 corresponds to 1 gradient
+# step every 128 env steps, or 1.5M gradient steps over 200M env steps.
+# gradient_steps_per_env_step = replay_ratio / (batch_size × batch_length × action_repeat)
+
+environmentName: pendulum-swingup
+runName: PendulumSwingup-Present-1
+seed: 0
+
+gradientSteps: 100_000
+replayRatio: 32
+saveMetrics: True # Saves metrics at replayRatio interval
+saveCheckpoints: True
+checkpointInterval: 500
+resume: True
+checkpointToLoad: 19.50k
+
+episodesBeforeStart: 2
+numInteractionEpisodes: 5
+numEvaluationEpisodes: 5
+
+dreamer:
+  batchSize: 16
+  batchLength: 64
+  imaginationHorizon: 15
+
+  recurrentSize: 256
+  latentLength: 8
+  latentClasses: 8
+  encodedObsSize: 4
+
+  useContinuationPrediction: False
+  actorLR: 0.00004
+  criticLR: 0.0001
+  worldModelLR: 0.0002
+  gradientNormType: 2
+  gradientClip: 100
+
+  discount: 0.997
+  lambda_: 0.95
+  freeNats: 1
+  betaPrior: 1.0
+  betaPosterior: 0.1
+  entropyScale: 0.0003
+
+  buffer:
+    capacity: 50_000
+
+  encoder:
+    hiddenSize: 64
+    numLayers: 2
+    activation: Tanh
+
+  decoder:
+    hiddenSize: 64
+    numLayers: 2
+    activation: Tanh
+
+  recurrentModel:
+    hiddenSize: 200
+    activation: Tanh
+
+  priorNet:
+    hiddenSize: 200
+    numLayers: 2
+    activation: Tanh
+    uniformMix: 0.01
+
+  posteriorNet:
+    hiddenSize: 200
+    numLayers: 2
+    activation: Tanh
+    uniformMix: 0.01
+
+  reward:
+    hiddenSize: 400
+    numLayers: 2
+    activation: Tanh
+
+  continuation:
+    hiddenSize: 400
+    numLayers: 3
+    activation: Tanh
+
+  actor:
+    hiddenSize: 400
+    numLayers: 2
+    activation: Tanh
+
+  critic:
+    hiddenSize: 400
+    numLayers: 3
+    activation: Tanh
+
+folderNames:
+  metricsFolder: metrics
+  plotsFolder: plots
+  checkpointsFolder: checkpoints
+  videosFolder: videos

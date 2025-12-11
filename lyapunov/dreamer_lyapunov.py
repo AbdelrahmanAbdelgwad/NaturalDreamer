@@ -1,3 +1,4 @@
+from networkx import config
 import torch
 import torch.nn as nn
 from torch.distributions import (
@@ -54,7 +55,8 @@ class DreamerLyapunov:
         ).to(self.device)
         self.critic = Critic(self.fullStateSize, config.critic).to(self.device)
 
-        # Initialize Lyapunov function V(z)
+        # Initialize Lyapunov function V(z, h)
+
         self.lyapunovModel = LyapunovModel(self.fullStateSize, config.lyapunov).to(
             self.device
         )
@@ -317,10 +319,6 @@ class DreamerLyapunov:
         _, inverseScale = self.valueMoments(lambdaValues)
         advantages = (lambdaValues - values[:, :-1]) / inverseScale
 
-        # Compute Lyapunov regularization
-        # Encourage V(z_{t+1}, h_{t+1}) < V(z_t, h_t) along trajectories
-        initialLyapunovValues = self.lyapunovModel(fullStates[:, 0])
-
         # Compute Lyapunov decrease penalty: we want V(z_{t+1}, h_{t+1}) - V(z_t, h_t) < 0
         # So we penalize positive differences
         lyapunovDifferences = lyapunovValues[:, 1:] - lyapunovValues[:, :-1]
@@ -367,17 +365,9 @@ class DreamerLyapunov:
 
         # 3. Zero at equilibrium (only if specified)
         if self.equilibriumPoint is not None:
-            with torch.no_grad():
-                encodedEquilibrium = self.encoder(self.equilibriumPoint.unsqueeze(0))
-                recurrentStateEq = torch.zeros(
-                    1, self.recurrentSize, device=self.device
-                )
-                latentStateEq, _ = self.posteriorNet(
-                    torch.cat((recurrentStateEq, encodedEquilibrium), -1)
-                )
-                fullStateEq = torch.cat((recurrentStateEq, latentStateEq), -1)
-
-            lyapunovAtEquilibrium = self.lyapunovModel(fullStateEq)
+            lyapunovAtEquilibrium = self.lyapunovModel(
+                self.equilibriumPoint.unsqueeze(0)
+            )
             LyapunovEquilibriumLoss = lyapunovAtEquilibrium.pow(2).mean()
         else:
             LyapunovEquilibriumLoss = 0.0
@@ -445,12 +435,13 @@ class DreamerLyapunov:
                 latentState, _ = self.posteriorNet(
                     torch.cat((recurrentState, encodedObservation.view(1, -1)), -1)
                 )
-
                 fullState = torch.cat((recurrentState, latentState), -1)
 
                 # Track Lyapunov value during evaluation
                 if evaluation:
-                    lyapunovValue = self.lyapunovModel(fullState)
+                    # Use the decoder to reconstruct observation from fullState
+                    reconstructedObservation = self.decoder(fullState)
+                    lyapunovValue = self.lyapunovModel(reconstructedObservation)
                     episodeLyapunovValues.append(lyapunovValue.item())
 
                 action = self.actor(fullState)
